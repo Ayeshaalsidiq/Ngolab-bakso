@@ -12,10 +12,9 @@ if (isset($_POST['tambah'])) {
     $nomor_hp = $_POST['nomor_hp'];
 
     try {
-        $stmt = $pdo->prepare("INSERT INTO users (role, nama, username, password, nomor_hp) VALUES ('karyawan', ?, ?, ?, ?)");
-        $stmt->execute([$nama, $username, $password, $nomor_hp]);
+        mysqli_execute_query($koneksi, "INSERT INTO users (role, nama, username, password, nomor_hp) VALUES ('karyawan', ?, ?, ?, ?)", [$nama, $username, $password, $nomor_hp]);
         $sukses = "Karyawan berhasil ditambahkan!";
-    } catch(PDOException $e) {
+    } catch(Exception $e) {
         $error = "Gagal menambah karyawan. Username mungkin sudah dipakai.";
     }
 }
@@ -30,14 +29,12 @@ if (isset($_POST['edit'])) {
     try {
         if (!empty($_POST['password'])) {
             $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("UPDATE users SET nama=?, username=?, password=?, nomor_hp=? WHERE id=?");
-            $stmt->execute([$nama, $username, $password, $nomor_hp, $id]);
+            mysqli_execute_query($koneksi, "UPDATE users SET nama=?, username=?, password=?, nomor_hp=? WHERE id=?", [$nama, $username, $password, $nomor_hp, $id]);
         } else {
-            $stmt = $pdo->prepare("UPDATE users SET nama=?, username=?, nomor_hp=? WHERE id=?");
-            $stmt->execute([$nama, $username, $nomor_hp, $id]);
+            mysqli_execute_query($koneksi, "UPDATE users SET nama=?, username=?, nomor_hp=? WHERE id=?", [$nama, $username, $nomor_hp, $id]);
         }
         $sukses = "Data karyawan berhasil diupdate!";
-    } catch(PDOException $e) {
+    } catch(Exception $e) {
         $error = "Gagal mengupdate karyawan.";
     }
 }
@@ -45,14 +42,13 @@ if (isset($_POST['edit'])) {
 // Proses Hapus Karyawan
 if (isset($_GET['hapus'])) {
     $id = $_GET['hapus'];
-    $stmt = $pdo->prepare("DELETE FROM users WHERE id=?");
-    $stmt->execute([$id]);
+    mysqli_execute_query($koneksi, "DELETE FROM users WHERE id=?", [$id]);
     redirect('karyawan.php?msg=deleted');
 }
 
 // Ambil data karyawan
-$stmt = $pdo->query("SELECT * FROM users WHERE role='karyawan' ORDER BY nama ASC");
-$karyawan = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$result = mysqli_query($koneksi, "SELECT * FROM users WHERE role='karyawan' ORDER BY nama ASC");
+$karyawan = mysqli_fetch_all($result, MYSQLI_ASSOC);
 
 include '../layouts/header.php';
 include '../layouts/sidebar_admin.php';
@@ -106,14 +102,14 @@ include '../layouts/sidebar_admin.php';
                             <?php $no=1; foreach($karyawan as $k): ?>
                             <tr>
                                 <td><?= $no++ ?></td>
-                                <td class="fw-medium"><?= htmlspecialchars($k['nama']) ?></td>
-                                <td><?= htmlspecialchars($k['username']) ?></td>
+                                <td class="fw-medium text-dark"><?= htmlspecialchars($k['nama']) ?></td>
+                                <td class="text-muted"><?= htmlspecialchars($k['username']) ?></td>
                                 <td><?= htmlspecialchars($k['nomor_hp']) ?></td>
                                 <td>
-                                    <button class="btn btn-sm btn-warning mb-1" data-bs-toggle="modal" data-bs-target="#editModal<?= $k['id'] ?>">
+                                    <button class="btn btn-sm btn-outline-primary mb-1 me-1" data-bs-toggle="modal" data-bs-target="#editModal<?= $k['id'] ?>" title="Edit">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
-                                    <a href="karyawan.php?hapus=<?= $k['id'] ?>" class="btn btn-sm btn-danger mb-1" onclick="return confirm('Yakin ingin menghapus data ini? Semua jadwal dan absensinya juga akan terhapus.');">
+                                    <a href="karyawan.php?hapus=<?= $k['id'] ?>" class="btn btn-sm btn-outline-danger mb-1" onclick="return confirm('Yakin ingin menghapus data ini? Semua jadwal dan absensinya juga akan terhapus.');" title="Hapus">
                                         <i class="fas fa-trash"></i> Hapus
                                     </a>
                                 </td>
@@ -121,35 +117,35 @@ include '../layouts/sidebar_admin.php';
 
                             <!-- Modal Edit -->
                             <div class="modal fade" id="editModal<?= $k['id'] ?>" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow">
                                         <form method="POST" action="">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Edit Karyawan</h5>
+                                            <div class="modal-header border-bottom-0 pb-0">
+                                                <h5 class="modal-title fw-bold">Edit Karyawan</h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                             </div>
-                                            <div class="modal-body">
+                                            <div class="modal-body pt-4">
                                                 <input type="hidden" name="id" value="<?= $k['id'] ?>">
                                                 <div class="mb-3">
-                                                    <label class="form-label">Nama Lengkap</label>
+                                                    <label class="form-label text-muted small fw-bold">NAMA LENGKAP</label>
                                                     <input type="text" class="form-control" name="nama" value="<?= htmlspecialchars($k['nama']) ?>" required>
                                                 </div>
                                                 <div class="mb-3">
-                                                    <label class="form-label">Username</label>
+                                                    <label class="form-label text-muted small fw-bold">USERNAME</label>
                                                     <input type="text" class="form-control" name="username" value="<?= htmlspecialchars($k['username']) ?>" required>
                                                 </div>
                                                 <div class="mb-3">
-                                                    <label class="form-label">Nomor HP</label>
+                                                    <label class="form-label text-muted small fw-bold">NOMOR HP</label>
                                                     <input type="text" class="form-control" name="nomor_hp" value="<?= htmlspecialchars($k['nomor_hp']) ?>" required>
                                                 </div>
                                                 <div class="mb-3">
-                                                    <label class="form-label">Password (Biarkan kosong jika tidak diubah)</label>
-                                                    <input type="password" class="form-control" name="password">
+                                                    <label class="form-label text-muted small fw-bold">PASSWORD BARU</label>
+                                                    <input type="password" class="form-control" name="password" placeholder="Kosongkan jika tidak diubah">
                                                 </div>
                                             </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                                <button type="submit" name="edit" class="btn btn-primary">Simpan Perubahan</button>
+                                            <div class="modal-footer border-top-0 pt-0">
+                                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                                                <button type="submit" name="edit" class="btn btn-primary px-4">Simpan Perubahan</button>
                                             </div>
                                         </form>
                                     </div>
@@ -166,34 +162,34 @@ include '../layouts/sidebar_admin.php';
 
 <!-- Modal Tambah -->
 <div class="modal fade" id="tambahModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
             <form method="POST" action="">
-                <div class="modal-header">
-                    <h5 class="modal-title">Tambah Karyawan Baru</h5>
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold">Tambah Karyawan Baru</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body pt-4">
                     <div class="mb-3">
-                        <label class="form-label">Nama Lengkap</label>
+                        <label class="form-label text-muted small fw-bold">NAMA LENGKAP</label>
                         <input type="text" class="form-control" name="nama" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Username</label>
+                        <label class="form-label text-muted small fw-bold">USERNAME</label>
                         <input type="text" class="form-control" name="username" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Nomor HP</label>
+                        <label class="form-label text-muted small fw-bold">NOMOR HP</label>
                         <input type="text" class="form-control" name="nomor_hp" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Password Default</label>
+                        <label class="form-label text-muted small fw-bold">PASSWORD DEFAULT</label>
                         <input type="password" class="form-control" name="password" required>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" name="tambah" class="btn btn-primary">Simpan Karyawan</button>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" name="tambah" class="btn btn-primary px-4">Simpan Karyawan</button>
                 </div>
             </form>
         </div>

@@ -5,14 +5,16 @@ if (!isAdmin()) {
 }
 
 // Menghitung statistik sederhana
-$total_karyawan = $pdo->query("SELECT COUNT(*) FROM users WHERE role='karyawan'")->fetchColumn();
-$izin_pending = $pdo->query("SELECT COUNT(*) FROM izin_karyawan WHERE status='pending'")->fetchColumn();
+$result_karyawan = mysqli_query($koneksi, "SELECT COUNT(*) FROM users WHERE role='karyawan'");
+$total_karyawan = mysqli_fetch_row($result_karyawan)[0];
+
+$result_izin = mysqli_query($koneksi, "SELECT COUNT(*) FROM izin_karyawan WHERE status='pending'");
+$izin_pending = mysqli_fetch_row($result_izin)[0];
 
 // Ambil jadwal shift hari ini
 $hari_ini = date('Y-m-d');
-$stmt_shift = $pdo->prepare("SELECT j.*, u.nama FROM jadwal_shift j JOIN users u ON j.user_id = u.id WHERE j.tanggal = ? ORDER BY j.jam_mulai ASC");
-$stmt_shift->execute([$hari_ini]);
-$shift_hari_ini = $stmt_shift->fetchAll(PDO::FETCH_ASSOC);
+$result_shift = mysqli_execute_query($koneksi, "SELECT j.*, u.nama FROM jadwal_shift j JOIN users u ON j.user_id = u.id WHERE j.tanggal = ? ORDER BY j.jam_mulai ASC", [$hari_ini]);
+$shift_hari_ini = mysqli_fetch_all($result_shift, MYSQLI_ASSOC);
 
 include '../layouts/header.php';
 include '../layouts/sidebar_admin.php';
@@ -39,29 +41,25 @@ include '../layouts/sidebar_admin.php';
     <div class="container-fluid">
         <!-- Statistik -->
         <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="card bg-primary text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-white-50">Total Karyawan</h6>
-                                <h2 class="mb-0 fw-bold"><?= $total_karyawan ?></h2>
-                            </div>
-                            <i class="fas fa-users fa-3x opacity-50"></i>
-                        </div>
+            <div class="col-md-6 mb-3 mb-md-0">
+                <div class="stat-card primary h-100">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <p>Total Karyawan</p>
+                        <h2><?= $total_karyawan ?></h2>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card bg-warning text-dark h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-dark-50">Izin Pending</h6>
-                                <h2 class="mb-0 fw-bold"><?= $izin_pending ?></h2>
-                            </div>
-                            <i class="fas fa-envelope-open-text fa-3x opacity-50"></i>
-                        </div>
+            <div class="col-md-6">
+                <div class="stat-card warning h-100">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-envelope-open-text"></i>
+                    </div>
+                    <div class="stat-info">
+                        <p>Izin Pending</p>
+                        <h2><?= $izin_pending ?></h2>
                     </div>
                 </div>
             </div>

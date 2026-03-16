@@ -12,32 +12,31 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     if (in_array($action, ['disetujui', 'ditolak'])) {
         try {
             // Ambil detail tukar
-            $stmt_tukar = $pdo->prepare("SELECT * FROM tukar_jadwal WHERE id=? AND status='pending_admin'");
-            $stmt_tukar->execute([$id]);
-            $tukar = $stmt_tukar->fetch(PDO::FETCH_ASSOC);
+            $stmt_tukar = mysqli_execute_query($koneksi, "SELECT * FROM tukar_jadwal WHERE id=? AND status='pending_admin'", [$id]);
+            $tukar = mysqli_fetch_assoc($stmt_tukar);
 
             if ($tukar) {
                 // Update status di tabel tukar
-                $pdo->prepare("UPDATE tukar_jadwal SET status=? WHERE id=?")->execute([$action, $id]);
+                mysqli_execute_query($koneksi, "UPDATE tukar_jadwal SET status=? WHERE id=?", [$action, $id]);
                 
                 if ($action == 'disetujui') {
                     // Update user_id di jadwal_shift (Swap owner)
                     // jadwal_pengaju menjadi milik penerima
-                    $pdo->prepare("UPDATE jadwal_shift SET user_id=? WHERE id=?")->execute([$tukar['penerima_id'], $tukar['jadwal_pengaju_id']]);
+                    mysqli_execute_query($koneksi, "UPDATE jadwal_shift SET user_id=? WHERE id=?", [$tukar['penerima_id'], $tukar['jadwal_pengaju_id']]);
                     // jadwal_penerima menjadi milik pengaju
-                    $pdo->prepare("UPDATE jadwal_shift SET user_id=? WHERE id=?")->execute([$tukar['pengaju_id'], $tukar['jadwal_penerima_id']]);
+                    mysqli_execute_query($koneksi, "UPDATE jadwal_shift SET user_id=? WHERE id=?", [$tukar['pengaju_id'], $tukar['jadwal_penerima_id']]);
                 }
                 
                 redirect("tukar.php?msg=$action");
             }
-        } catch(PDOException $e) {
+        } catch(Exception $e) {
             $error = "Terjadi kesalahan saat memproses.";
         }
     }
 }
 
 // Ambil semua daftar tukar jadwal
-$stmt = $pdo->query("
+$stmt = mysqli_query($koneksi, "
     SELECT t.*, u1.nama as nama_pengaju, u2.nama as nama_penerima, 
            j1.tanggal as tgl_1, j1.jam_mulai as jam1_mulai, j1.jam_selesai as jam1_selesai,
            j2.tanggal as tgl_2, j2.jam_mulai as jam2_mulai, j2.jam_selesai as jam2_selesai 
@@ -48,7 +47,7 @@ $stmt = $pdo->query("
     JOIN jadwal_shift j2 ON t.jadwal_penerima_id = j2.id
     ORDER BY t.id DESC
 ");
-$data_tukar = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$data_tukar = mysqli_fetch_all($stmt, MYSQLI_ASSOC);
 
 include '../layouts/header.php';
 include '../layouts/sidebar_admin.php';
@@ -67,44 +66,44 @@ include '../layouts/sidebar_admin.php';
             </div>
         <?php endif; ?>
 
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white pb-0 border-0">
-                <i class="fas fa-exchange-alt text-primary me-1"></i> Histori & Approval Tukar Shift Karyawan
+        <div class="card">
+            <div class="card-header border-bottom-0 pb-0 pt-4 bg-white">
+                <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-exchange-alt text-primary me-2"></i>Histori & Approval Tukar Shift Karyawan</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body px-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle ps-1">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Pengaju</th>
-                                <th>Shift Pengaju</th>
+                                <th class="ps-4">PENGAJU</th>
+                                <th>SHIFT PENGAJU</th>
                                 <th class="text-center"><i class="fas fa-arrows-alt-h text-muted"></i></th>
-                                <th>Target Shift Teman</th>
-                                <th>Alasan</th>
-                                <th>Status Proses</th>
-                                <th>Aksi Admin</th>
+                                <th>TARGET SHIFT TEMAN</th>
+                                <th>ALASAN</th>
+                                <th>STATUS PROSES</th>
+                                <th class="pe-4">AKSI ADMIN</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if(count($data_tukar) > 0): ?>
                                 <?php foreach($data_tukar as $t): ?>
                                 <tr>
-                                    <td class="fw-bold"><?= htmlspecialchars($t['nama_pengaju']) ?></td>
+                                    <td class="ps-4 fw-medium text-dark"><?= htmlspecialchars($t['nama_pengaju']) ?></td>
                                     <td>
-                                        <span class="badge bg-light text-dark border d-block text-start mb-1">
+                                        <span class="badge bg-light text-muted border d-block text-start mb-1 fw-normal">
                                             <?= tgl_indo($t['tgl_1']) ?>
                                         </span>
                                         <small class="text-muted"><?= substr($t['jam1_mulai'],0,5) ?> - <?= substr($t['jam1_selesai'],0,5) ?></small>
                                     </td>
                                     <td class="text-center text-muted">&rarr;</td>
                                     <td>
-                                        <strong class="d-block text-primary"><?= htmlspecialchars($t['nama_penerima']) ?></strong>
-                                        <span class="badge bg-light text-dark border d-block text-start mb-1">
+                                        <strong class="d-block text-primary fw-medium"><?= htmlspecialchars($t['nama_penerima']) ?></strong>
+                                        <span class="badge bg-light text-muted border d-block text-start mb-1 fw-normal">
                                             <?= tgl_indo($t['tgl_2']) ?>
                                         </span>
                                         <small class="text-muted"><?= substr($t['jam2_mulai'],0,5) ?> - <?= substr($t['jam2_selesai'],0,5) ?></small>
                                     </td>
-                                    <td><small><?= htmlspecialchars($t['alasan']) ?></small></td>
+                                    <td><small class="text-muted"><?= htmlspecialchars($t['alasan']) ?></small></td>
                                     <td>
                                         <?php 
                                             $st = $t['status'];
@@ -114,19 +113,19 @@ include '../layouts/sidebar_admin.php';
                                             else echo '<span class="badge bg-danger">Ditolak</span>';
                                         ?>
                                     </td>
-                                    <td>
+                                    <td class="pe-4">
                                         <?php if($t['status'] == 'pending_admin'): ?>
-                                            <a href="tukar.php?action=disetujui&id=<?= $t['id'] ?>" class="btn btn-sm btn-success me-1 mb-1" onclick="return confirm('Setuju tukar shift ini? Data jadwal mereka akan di-swap.');" title="Setujui"><i class="fas fa-check"></i></a>
-                                            <a href="tukar.php?action=ditolak&id=<?= $t['id'] ?>" class="btn btn-sm btn-danger mb-1" onclick="return confirm('Tolak permintaan tukar ini?');" title="Tolak"><i class="fas fa-times"></i></a>
+                                            <a href="tukar.php?action=disetujui&id=<?= $t['id'] ?>" class="btn btn-sm btn-outline-success me-1 mb-1" onclick="return confirm('Setuju tukar shift ini? Data jadwal mereka akan di-swap.');" title="Setujui"><i class="fas fa-check"></i></a>
+                                            <a href="tukar.php?action=ditolak&id=<?= $t['id'] ?>" class="btn btn-sm btn-outline-danger mb-1" onclick="return confirm('Tolak permintaan tukar ini?');" title="Tolak"><i class="fas fa-times"></i></a>
                                         <?php else: ?>
-                                            <span class="text-muted small">Selesai/Pending</span>
+                                            <span class="text-muted small fw-medium">Selesai/Pending</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="7" class="text-center py-4 text-muted">Belum ada riwayat tukar jadwal shift.</td>
+                                    <td colspan="7" class="text-center py-5 text-muted">Belum ada riwayat tukar jadwal shift.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>

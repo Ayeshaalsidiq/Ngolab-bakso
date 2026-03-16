@@ -12,22 +12,21 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     if (in_array($action, ['disetujui', 'ditolak'])) {
         try {
             // Update status izin
-            $stmt = $pdo->prepare("UPDATE izin_karyawan SET status=? WHERE id=?");
-            $stmt->execute([$action, $id]);
+            mysqli_execute_query($koneksi, "UPDATE izin_karyawan SET status=? WHERE id=?", [$action, $id]);
             
             // Jika disetujui, dan hari ini karyawan tersebut punya jadwal aktif, mungkin jadwal dihapus/diubah.
             // Di sini kita catat sekedar pesan sukses
             $sukses = "Izin berhasil di-$action.";
             redirect("izin.php?msg=$action");
-        } catch(PDOException $e) {
+        } catch(Exception $e) {
             $error = "Gagal memproses persetujuan.";
         }
     }
 }
 
 // Ambil semua data izin
-$stmt = $pdo->query("SELECT i.*, u.nama FROM izin_karyawan i JOIN users u ON i.user_id = u.id ORDER BY i.id DESC");
-$data_izin = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$result = mysqli_query($koneksi, "SELECT i.*, u.nama FROM izin_karyawan i JOIN users u ON i.user_id = u.id ORDER BY i.id DESC");
+$data_izin = mysqli_fetch_all($result, MYSQLI_ASSOC);
 
 include '../layouts/header.php';
 include '../layouts/sidebar_admin.php';
@@ -46,41 +45,40 @@ include '../layouts/sidebar_admin.php';
             </div>
         <?php endif; ?>
 
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white pb-0 border-0">
-                <i class="fas fa-tasks text-primary me-1"></i> Daftar Pengajuan Izin
+        <div class="card">
+            <div class="card-header border-bottom-0 pb-0 pt-4 bg-white">
+                <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Daftar Pengajuan Izin</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body px-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Tanggal Pengajuan</th>
-                                <th>Karyawan</th>
-                                <th>Periode Cuti/Izin</th>
-                                <th>Alasan</th>
-                                <th>Bukti</th>
-                                <th>Status</th>
-                                <th>Aksi</th>
+                                <th class="ps-4">TANGGAL PENGAJUAN</th>
+                                <th>KARYAWAN</th>
+                                <th>PERIODE CUTI/IZIN</th>
+                                <th>ALASAN</th>
+                                <th>BUKTI</th>
+                                <th>STATUS</th>
+                                <th class="pe-4">AKSI</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if(count($data_izin) > 0): ?>
                                 <?php foreach($data_izin as $i): ?>
                                 <tr>
-                                    <td class="text-muted small">
-                                        <!-- Simulasi dari ID untuk kesederhanaan, jika ada created_at, gunakan created_at -->
+                                    <td class="ps-4 text-muted small fw-medium">
                                         ID-<?= $i['id'] ?>
                                     </td>
-                                    <td class="fw-bold text-primary"><?= htmlspecialchars($i['nama']) ?></td>
-                                    <td>
+                                    <td class="fw-medium text-dark"><?= htmlspecialchars($i['nama']) ?></td>
+                                    <td class="text-muted">
                                         <?= date('d/m/Y', strtotime($i['tanggal_mulai'])) ?> 
                                         <?php if($i['tanggal_mulai'] != $i['tanggal_selesai']): ?>
                                             - <?= date('d/m/Y', strtotime($i['tanggal_selesai'])) ?>
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="tooltip" data-bs-placement="top" title="<?= htmlspecialchars($i['alasan']) ?>">
+                                        <button type="button" class="btn btn-sm btn-light border text-muted" data-bs-toggle="tooltip" data-bs-placement="top" title="<?= htmlspecialchars($i['alasan']) ?>">
                                             Lihat Alasan
                                         </button>
                                     </td>
@@ -100,19 +98,19 @@ include '../layouts/sidebar_admin.php';
                                             else echo '<span class="badge bg-danger">Ditolak</span>';
                                         ?>
                                     </td>
-                                    <td>
+                                    <td class="pe-4">
                                         <?php if($i['status'] == 'pending'): ?>
-                                            <a href="izin.php?action=disetujui&id=<?= $i['id'] ?>" class="btn btn-sm btn-success me-1" onclick="return confirm('Apakah Anda yakin menyetujui izin ini?');">Setujui</a>
-                                            <a href="izin.php?action=ditolak&id=<?= $i['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Apakah Anda yakin menolak izin ini?');">Tolak</a>
+                                            <a href="izin.php?action=disetujui&id=<?= $i['id'] ?>" class="btn btn-sm btn-outline-success me-1" onclick="return confirm('Apakah Anda yakin menyetujui izin ini?');" title="Setujui"><i class="fas fa-check"></i></a>
+                                            <a href="izin.php?action=ditolak&id=<?= $i['id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Apakah Anda yakin menolak izin ini?');" title="Tolak"><i class="fas fa-times"></i></a>
                                         <?php else: ?>
-                                            <span class="text-muted small"><i class="fas fa-check"></i> Selesai</span>
+                                            <span class="text-muted small"><i class="fas fa-check-double"></i> Selesai</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="7" class="text-center py-4 text-muted">Belum ada pengajuan izin.</td>
+                                    <td colspan="7" class="text-center py-5 text-muted">Belum ada pengajuan izin.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>

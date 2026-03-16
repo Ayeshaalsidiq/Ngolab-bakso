@@ -8,138 +8,406 @@ $user_id = $_SESSION['user_id'];
 $filter_bulan = isset($_GET['bulan']) ? $_GET['bulan'] : date('Y-m');
 
 // Ambil data shift berdasarkan bulan filter untuk SEMUA karyawan
-$stmt_shift = $pdo->prepare("
+$stmt_shift = mysqli_execute_query($koneksi, "
     SELECT j.*, u.nama 
     FROM jadwal_shift j 
     JOIN users u ON j.user_id = u.id 
     WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = ? 
     ORDER BY j.tanggal ASC, j.jam_mulai ASC
-");
-$stmt_shift->execute([$filter_bulan]);
-$jadwal_shift = $stmt_shift->fetchAll(PDO::FETCH_ASSOC);
+", [$filter_bulan]);
+$jadwal_shift = mysqli_fetch_all($stmt_shift, MYSQLI_ASSOC);
 
 include '../layouts/header.php';
 include '../layouts/sidebar_karyawan.php';
 ?>
 
-<div id="page-content-wrapper">
-    <nav class="top-navbar">
-        <h4 class="mb-0 fw-bold">Jadwal Shift Pegawai</h4>
-    </nav>
+<style>
+    /* PERINGATAN: Pindahkan blok CSS ini ke file global (misal: app.css) 
+    dan panggil di header.php. Berhenti menduplikasi ini di setiap file.
+    */
+    :root {
+        --dash-bg: #F4F6F8;
+        --dash-surface: #FFFFFF;
+        --dash-text-dark: #000000;
+        --dash-text-muted: #6B7280;
+        --dash-accent: #F99451;
+        --dash-accent-light: #FFF4ED;
+        --dash-border: #E5E7EB;
+        --dash-danger: #EF4444;
+        --dash-danger-light: #FEF2F2;
+        --dash-success: #10B981;
+        --dash-success-light: #ECFDF5;
+        --dash-warning: #F59E0B;
+        --dash-warning-light: #FFFBEB;
+    }
 
-    <div class="container-fluid">
-        <div class="card shadow-sm mb-4 border-0">
-            <div class="card-body">
-                <form method="GET" class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="bulan" class="col-form-label fw-medium text-muted">Filter Bulan:</label>
-                    </div>
-                    <div class="col-auto">
-                        <input type="month" id="bulan" name="bulan" class="form-control fw-bold text-primary" value="<?= $filter_bulan ?>" required>
-                    </div>
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-primary fw-bold"><i class="fas fa-search me-1"></i> Tampilkan Seluruh Shift</button>
-                    </div>
-                </form>
-            </div>
+    body {
+        background-color: var(--dash-bg);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .dash-header { margin-bottom: 2rem; }
+    
+    .dash-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--dash-text-dark);
+        margin-bottom: 0.25rem;
+        letter-spacing: -0.02em;
+    }
+
+    .dash-subtitle { color: var(--dash-text-muted); font-size: 0.95rem; }
+
+    .dash-card {
+        background: var(--dash-surface);
+        border: 1px solid var(--dash-border);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+        margin-bottom: 1.5rem;
+    }
+
+    .dash-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .dash-card-title {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--dash-text-dark);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Form Filter */
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .dash-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--dash-text-dark);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0;
+    }
+
+    .dash-input-inline {
+        background: #F9FAFB;
+        border: 1px solid var(--dash-border);
+        border-radius: 12px;
+        padding: 0.65rem 1rem;
+        font-size: 0.95rem;
+        color: var(--dash-text-dark);
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .dash-input-inline:focus {
+        outline: none;
+        background: var(--dash-surface);
+        border-color: var(--dash-accent);
+        box-shadow: 0 0 0 4px var(--dash-accent-light);
+    }
+
+    .dash-btn-primary {
+        background-color: var(--dash-text-dark);
+        color: var(--dash-surface);
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .dash-btn-primary:hover {
+        background-color: var(--dash-accent);
+        color: var(--dash-surface);
+        transform: translateY(-2px);
+    }
+
+    /* Modern Table/List Design */
+    .shift-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .shift-item {
+        display: grid;
+        grid-template-columns: 50px 150px 1fr 200px 120px;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        border: 1px solid var(--dash-border);
+        border-radius: 16px;
+        background: var(--dash-surface);
+        transition: all 0.2s ease;
+        gap: 1rem;
+    }
+
+    .shift-item:hover {
+        border-color: #D1D5DB;
+        background: #F9FAFB;
+    }
+
+    /* Highlight untuk hari ini dan milik user */
+    .shift-item.is-today {
+        border-color: var(--dash-accent);
+        background: var(--dash-accent-light);
+    }
+    
+    .shift-item.is-mine {
+        border-left: 4px solid var(--dash-text-dark);
+    }
+
+    .col-no {
+        color: var(--dash-text-muted);
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .col-date {
+        font-weight: 800;
+        color: var(--dash-text-dark);
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .badge-today {
+        background-color: var(--dash-text-dark);
+        color: var(--dash-surface);
+        font-size: 0.65rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 50px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        display: inline-block;
+        width: max-content;
+        animation: pulse 2s infinite;
+    }
+
+    .col-employee {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.95rem;
+    }
+
+    .avatar.mine { background: var(--dash-accent); color: var(--dash-text-dark); }
+    .avatar.other { background: #E5E7EB; color: #4B5563; }
+
+    .employee-name {
+        font-weight: 700;
+        margin: 0;
+        font-size: 0.95rem;
+    }
+    .employee-name.mine { color: var(--dash-accent); }
+    .employee-name.other { color: var(--dash-text-dark); }
+
+    .employee-meta {
+        font-size: 0.75rem;
+        color: var(--dash-text-muted);
+        margin: 0;
+    }
+
+    .col-time {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--dash-surface);
+        border: 1px solid var(--dash-border);
+        color: var(--dash-text-dark);
+        padding: 0.4rem 0.85rem;
+        border-radius: 10px;
+        font-family: monospace;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+    
+    .shift-item.is-today .col-time {
+        border-color: rgba(249, 148, 81, 0.3);
+    }
+
+    .col-status {
+        text-align: right;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.4rem 0.85rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .status-aktif { background: var(--dash-success-light); color: var(--dash-success); }
+    .status-tukar { background: var(--dash-warning-light); color: var(--dash-warning); }
+    .status-default { background: #F3F4F6; color: var(--dash-text-muted); }
+
+    .action-absen {
+        display: block;
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--dash-accent);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .action-absen:hover { color: var(--dash-text-dark); }
+
+    /* Responsive Grid for mobile */
+    @media (max-width: 991px) {
+        .shift-item {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+            position: relative;
+        }
+        .col-no { position: absolute; top: 1rem; right: 1.25rem; }
+        .col-status { text-align: left; margin-top: 0.5rem; border-top: 1px dashed var(--dash-border); padding-top: 0.75rem;}
+        .col-time { width: max-content; }
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<div id="page-content-wrapper" class="pb-5 pt-4">
+    <div class="container-fluid px-xl-5">
+        
+        <!-- Header -->
+        <div class="dash-header">
+            <h1 class="dash-title">Jadwal Shift Pegawai</h1>
+            <p class="dash-subtitle">Pantau alokasi jadwal shift bulanan seluruh divisi operasional.</p>
         </div>
 
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white pb-0 border-0">
-                <i class="fas fa-calendar-alt me-1 text-primary"></i> Daftar Shift Pegawai (<?= date('F Y', strtotime($filter_bulan . '-01')) ?>)
+        <!-- Filter Card -->
+        <div class="dash-card">
+            <form method="GET" class="filter-group">
+                <label for="bulan" class="dash-label">Filter Bulan</label>
+                <input type="month" id="bulan" name="bulan" class="dash-input-inline" value="<?= htmlspecialchars($filter_bulan) ?>" required>
+                <button type="submit" class="dash-btn-primary">
+                    <i class="fas fa-filter"></i> Terapkan
+                </button>
+            </form>
+        </div>
+
+        <!-- Data Card -->
+        <div class="dash-card">
+            <div class="dash-card-header">
+                <h2 class="dash-card-title">
+                    <span style="color: var(--dash-accent);">●</span> Daftar Shift (<?= date('F Y', strtotime($filter_bulan . '-01')) ?>)
+                </h2>
             </div>
-            <div class="card-body p-0 mt-2">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-4">No</th>
-                                <th>Tanggal</th>
-                                <th>Nama Pegawai</th>
-                                <th>Jam Shift</th>
-                                <th class="pe-4">Status & Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if(count($jadwal_shift) > 0): ?>
-                                <?php $no=1; foreach($jadwal_shift as $s): ?>
-                                <?php 
-                                    // Highlight jadwalku dan jadwal hari ini
-                                    $is_today = ($s['tanggal'] == date('Y-m-d'));
-                                    $is_mine = ($s['user_id'] == $user_id);
-                                    
-                                    $row_class = '';
-                                    if ($is_mine && $is_today) $row_class = 'table-warning border-start border-warning border-4';
-                                    else if ($is_mine) $row_class = 'bg-primary-subtle border-start border-primary border-4';
-                                ?>
-                                <tr class="<?= $row_class ?>">
-                                    <td class="ps-4"><?= $no++ ?></td>
-                                    <td class="fw-medium text-nowrap">
-                                        <?= tgl_indo($s['tanggal']) ?>
-                                        <?php if($is_today): ?>
-                                            <span class="badge bg-danger ms-2 animation-pulse">HARI INI</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">
-                                                <?= strtoupper(substr($s['nama'], 0, 1)) ?>
-                                            </div>
-                                            <strong class="<?= $is_mine ? 'text-primary' : 'text-dark' ?>">
-                                                <?= htmlspecialchars($s['nama']) ?> <?= $is_mine ? '(Anda)' : '' ?>
-                                            </strong>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <i class="far fa-clock text-muted me-1"></i>
-                                        <span class="font-monospace fs-6 fw-bold"><?= substr($s['jam_mulai'],0,5) ?> - <?= substr($s['jam_selesai'],0,5) ?></span>
-                                    </td>
-                                    <td class="pe-4">
-                                        <?php 
-                                            // Badge logic minimalis
-                                            $st = $s['status'];
-                                            if ($st == 'aktif') $badge = 'bg-success';
-                                            else if ($st == 'tukar') $badge = 'bg-warning text-dark';
-                                            else if ($st == 'selesai') $badge = 'bg-secondary';
-                                            else $badge = 'bg-secondary';
-                                        ?>
-                                        <span class="badge <?= $badge ?> rounded-pill px-3"><?= strtoupper($st) ?></span>
-                                        
-                                        <?php if($is_today && $st == 'aktif' && $is_mine): ?>
-                                            <a href="absensi.php" class="btn btn-sm btn-outline-primary ms-2 rounded-pill fw-bold">Absen Sekarang</a>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="5" class="text-center py-5 text-muted">
-                                        <div class="d-inline-flex flex-column align-items-center">
-                                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mb-3" style="width: 80px; height:80px;">
-                                                <i class="fas fa-calendar-times fs-1 opacity-50 text-secondary"></i>
-                                            </div>
-                                            <h5>Belum ada jadwal shift untuk bulan terpilih.</h5>
-                                        </div>
-                                    </td>
-                                </tr>
+            
+            <div class="shift-list">
+                <?php if(count($jadwal_shift) > 0): ?>
+                    <?php 
+                    $no = 1; 
+                    foreach($jadwal_shift as $s): 
+                        $is_today = ($s['tanggal'] == date('Y-m-d'));
+                        $is_mine = ($s['user_id'] == $user_id);
+                        $st = strtolower($s['status']);
+                        
+                        $item_class = '';
+                        if ($is_today) $item_class .= ' is-today';
+                        if ($is_mine) $item_class .= ' is-mine';
+
+                        $status_class = 'status-default';
+                        if ($st == 'aktif') $status_class = 'status-aktif';
+                        else if ($st == 'tukar') $status_class = 'status-tukar';
+                    ?>
+                    <div class="shift-item <?= $item_class ?>">
+                        <div class="col-no">#<?= sprintf('%02d', $no++) ?></div>
+                        
+                        <div class="col-date">
+                            <?= tgl_indo($s['tanggal']) ?>
+                            <?php if($is_today): ?>
+                                <span class="badge-today">HARI INI</span>
                             <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+                        </div>
+                        
+                        <div class="col-employee">
+                            <div class="avatar <?= $is_mine ? 'mine' : 'other' ?>">
+                                <?= strtoupper(substr($s['nama'], 0, 1)) ?>
+                            </div>
+                            <div>
+                                <p class="employee-name <?= $is_mine ? 'mine' : 'other' ?>">
+                                    <?= htmlspecialchars($s['nama']) ?>
+                                </p>
+                                <?php if($is_mine): ?>
+                                    <p class="employee-meta">Akun Anda</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="col-time">
+                                <i class="far fa-clock" style="color: var(--dash-accent);"></i>
+                                <?= substr($s['jam_mulai'],0,5) ?> - <?= substr($s['jam_selesai'],0,5) ?>
+                            </div>
+                        </div>
+                        
+                        <div class="col-status">
+                            <span class="status-pill <?= $status_class ?>">
+                                <i class="fas fa-circle" style="font-size: 0.4rem;"></i> <?= strtoupper($st) ?>
+                            </span>
+                            
+                            <?php if($is_today && $st == 'aktif' && $is_mine): ?>
+                                <a href="absensi.php" class="action-absen">
+                                    <i class="fas fa-fingerprint me-1"></i> Check In Sekarang
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <!-- Empty State -->
+                    <div class="text-center py-5 rounded-4" style="border: 1px dashed var(--dash-border); background: var(--dash-bg);">
+                        <div class="mb-3">
+                            <i class="fas fa-calendar-times" style="font-size: 3rem; color: #D1D5DB;"></i>
+                        </div>
+                        <h5 class="fw-bold" style="color: var(--dash-text-dark);">Tidak Ada Data</h5>
+                        <p class="mb-0" style="color: var(--dash-text-muted); font-size: 0.95rem;">Tidak ditemukan jadwal operasional pada bulan terpilih.</p>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
-}
-.animation-pulse {
-  animation: pulse 1.5s infinite;
-}
-</style>
 
 <?php include '../layouts/footer.php'; ?>

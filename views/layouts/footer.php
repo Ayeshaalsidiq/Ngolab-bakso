@@ -20,13 +20,14 @@
         var currentUrl = window.location.href;
         var listItems = document.querySelectorAll("#sidebar-wrapper .list-group-item");
         listItems.forEach(function(item) {
-            if(currentUrl.includes(item.getAttribute("href"))) {
+            if(item.getAttribute("href") && currentUrl.includes(item.getAttribute("href"))) {
                 item.classList.add("active");
             } else {
                 item.classList.remove("active");
             }
         });
     });
+
 </script>
 </body>
 </html>

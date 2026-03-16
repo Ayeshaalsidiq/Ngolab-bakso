@@ -12,9 +12,8 @@ if (isset($_POST['bayar_gaji'])) {
     $nominal = $_POST['nominal'];
     
     // Validasi apakah sudah digaji bulan ini
-    $cek = $pdo->prepare("SELECT id FROM penggajian WHERE user_id=? AND bulan=?");
-    $cek->execute([$user_id, $filter_bulan]);
-    if ($cek->rowCount() > 0) {
+    $cek_result = mysqli_execute_query($koneksi, "SELECT id FROM penggajian WHERE user_id=? AND bulan=?", [$user_id, $filter_bulan]);
+    if (mysqli_num_rows($cek_result) > 0) {
         $error = "Karyawan ini sudah menerima gaji untuk bulan $filter_bulan.";
     } else {
         $bukti_transfer = "";
@@ -34,10 +33,9 @@ if (isset($_POST['bayar_gaji'])) {
 
         if (!isset($error)) {
             try {
-                $stmt = $pdo->prepare("INSERT INTO penggajian (user_id, bulan, nominal, bukti_transfer) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$user_id, $filter_bulan, $nominal, $bukti_transfer]);
+                mysqli_execute_query($koneksi, "INSERT INTO penggajian (user_id, bulan, nominal, bukti_transfer) VALUES (?, ?, ?, ?)", [$user_id, $filter_bulan, $nominal, $bukti_transfer]);
                 $sukses = "Gaji berhasil dicatat dan bukti transfer dikirim ke karyawan.";
-            } catch(PDOException $e) {
+            } catch(Exception $e) {
                 $error = "Terjadi kesalahan sistem saat menyimpan gaji.";
             }
         }
@@ -48,29 +46,27 @@ if (isset($_POST['bayar_gaji'])) {
 if (isset($_GET['hapus'])) {
     $id = $_GET['hapus'];
     // Ambil info file transfer
-    $stmt_cek = $pdo->prepare("SELECT bukti_transfer FROM penggajian WHERE id=?");
-    $stmt_cek->execute([$id]);
-    $gaji = $stmt_cek->fetch();
+    $stmt_cek = mysqli_execute_query($koneksi, "SELECT bukti_transfer FROM penggajian WHERE id=?", [$id]);
+    $gaji = mysqli_fetch_assoc($stmt_cek);
     
     if ($gaji) {
         if (!empty($gaji['bukti_transfer'])) {
             @unlink("../../uploads/gaji/".$gaji['bukti_transfer']);
         }
-        $pdo->prepare("DELETE FROM penggajian WHERE id=?")->execute([$id]);
+        mysqli_execute_query($koneksi, "DELETE FROM penggajian WHERE id=?", [$id]);
         redirect('penggajian.php?msg=deleted&bulan='.$filter_bulan);
     }
 }
 
 // Ambil list karyawan berserta rekapan gaji bulan ini
-$stmt_karyawan = $pdo->prepare("
+$stmt_karyawan = mysqli_execute_query($koneksi, "
     SELECT u.id, u.nama, g.id as gaji_id, g.nominal, g.bukti_transfer, g.tanggal_kirim 
     FROM users u 
     LEFT JOIN penggajian g ON u.id = g.user_id AND g.bulan = ? 
     WHERE u.role = 'karyawan' 
     ORDER BY u.nama ASC
-");
-$stmt_karyawan->execute([$filter_bulan]);
-$karyawan = $stmt_karyawan->fetchAll(PDO::FETCH_ASSOC);
+", [$filter_bulan]);
+$karyawan = mysqli_fetch_all($stmt_karyawan, MYSQLI_ASSOC);
 
 function formatRupiah($angka) {
     return "Rp " . number_format($angka, 0, ',', '.');
@@ -105,41 +101,44 @@ include '../layouts/sidebar_admin.php';
             </div>
         <?php endif; ?>
 
-        <div class="card shadow-sm mb-4 border-0 bg-primary text-white">
+        <div class="card mb-4 border-0 shadow-sm alert-info rounded-3">
             <div class="card-body py-3 d-flex justify-content-between align-items-center flex-wrap">
                 <div class="d-flex align-items-center mb-2 mb-md-0">
-                    <i class="fas fa-money-check-alt fs-3 me-3 opacity-75"></i>
+                    <i class="fas fa-money-check-alt fs-3 me-3 text-info"></i>
                     <div>
-                        <h5 class="mb-0">Periode Pembayaran: <strong><?= date('F Y', strtotime($filter_bulan . '-01')) ?></strong></h5>
-                        <small class="opacity-75">Upload bukti transfer ke masing-masing karyawan</small>
+                        <h5 class="mb-0 fw-bold text-dark">Periode Pembayaran: <?= date('F Y', strtotime($filter_bulan . '-01')) ?></h5>
+                        <small class="text-muted">Upload bukti transfer ke masing-masing karyawan</small>
                     </div>
                 </div>
                 <form method="GET" class="d-flex align-items-center gap-2">
-                    <input type="month" name="bulan" class="form-control form-control-sm text-primary fw-bold" value="<?= $filter_bulan ?>" required style="max-width: 150px;">
-                    <button type="submit" class="btn btn-sm btn-light text-primary fw-bold">Ubah Periode</button>
+                    <input type="month" name="bulan" class="form-control form-control-sm border text-dark fw-bold" value="<?= $filter_bulan ?>" required style="max-width: 150px;">
+                    <button type="submit" class="btn btn-sm btn-info text-white fw-bold">Ubah Periode</button>
                 </form>
             </div>
         </div>
 
-        <div class="card shadow-sm border-0">
-            <div class="card-body p-0">
+        <div class="card">
+            <div class="card-header border-bottom-0 pb-0 pt-4 bg-white">
+                <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-list-ul text-primary me-2"></i>Status Pembayaran</h6>
+            </div>
+            <div class="card-body px-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="ps-4">Nama Lengkap</th>
-                                <th>Status Pembayaran</th>
-                                <th>Nominal Ditransfer</th>
-                                <th>Bukti Transfer</th>
-                                <th>Waktu Kirim</th>
-                                <th class="pe-4 text-end">Aksi</th>
+                                <th class="ps-4">NAMA LENGKAP</th>
+                                <th>STATUS PEMBAYARAN</th>
+                                <th>NOMINAL DITRANSFER</th>
+                                <th>BUKTI TRANSFER</th>
+                                <th>WAKTU KIRIM</th>
+                                <th class="pe-4 text-end">AKSI</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach($karyawan as $k): ?>
                                 <?php $sudah_dibayar = !empty($k['gaji_id']); ?>
                             <tr>
-                                <td class="ps-4 fw-bold"><?= htmlspecialchars($k['nama']) ?></td>
+                                <td class="ps-4 fw-medium text-dark"><?= htmlspecialchars($k['nama']) ?></td>
                                 <td>
                                     <?php if($sudah_dibayar): ?>
                                         <span class="badge bg-success"><i class="fas fa-check-double me-1"></i> Lunas Dikirim</span>
@@ -172,7 +171,7 @@ include '../layouts/sidebar_admin.php';
                                             <i class="fas fa-undo me-1"></i> Batalkan
                                         </a>
                                     <?php else: ?>
-                                        <button class="btn btn-sm btn-warning fw-bold text-dark" data-bs-toggle="modal" data-bs-target="#bayarModal<?= $k['id'] ?>">
+                                        <button class="btn btn-sm btn-primary fw-medium" data-bs-toggle="modal" data-bs-target="#bayarModal<?= $k['id'] ?>">
                                             <i class="fas fa-paper-plane me-1"></i> Bayar & Kirim TF
                                         </button>
                                     <?php endif; ?>
@@ -182,33 +181,33 @@ include '../layouts/sidebar_admin.php';
                             <?php if(!$sudah_dibayar): ?>
                             <!-- Modal Bayar Gaji -->
                             <div class="modal fade" id="bayarModal<?= $k['id'] ?>" tabindex="-1">
-                                <div class="modal-dialog">
+                                <div class="modal-dialog modal-dialog-centered">
                                     <div class="modal-content border-0 shadow">
                                         <form method="POST" enctype="multipart/form-data">
-                                            <div class="modal-header bg-light border-0">
+                                            <div class="modal-header border-bottom-0 pb-0 pt-4">
                                                 <h5 class="modal-title fw-bold">Transfer Gaji: <?= htmlspecialchars($k['nama']) ?></h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                             </div>
-                                            <div class="modal-body p-4">
+                                            <div class="modal-body pt-4">
                                                 <input type="hidden" name="user_id" value="<?= $k['id'] ?>">
                                                 
                                                 <div class="mb-4">
-                                                    <label class="form-label text-muted fw-bold">Nominal Gaji (Rp)</label>
-                                                    <div class="input-group input-group-lg shadow-sm">
-                                                        <span class="input-group-text bg-white border-end-0 text-success fw-bold">Rp</span>
+                                                    <label class="form-label text-muted small fw-bold">NOMINAL GAJI (RP)</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-light text-muted fw-bold border-end-0">Rp</span>
                                                         <input type="number" class="form-control border-start-0 ps-0 fw-bold" name="nominal" placeholder="Contoh: 1500000" required>
                                                     </div>
                                                 </div>
 
                                                 <div class="mb-2">
-                                                    <label class="form-label text-muted fw-bold">Upload Bukti Transfer</label>
-                                                    <input type="file" class="form-control form-control-lg" name="bukti_transfer" accept=".jpg,.jpeg,.png,.pdf" required>
+                                                    <label class="form-label text-muted small fw-bold">UPLOAD BUKTI TRANSFER</label>
+                                                    <input type="file" class="form-control form-control-sm" name="bukti_transfer" accept=".jpg,.jpeg,.png,.pdf" required>
                                                     <small class="text-muted mt-2 d-block"><i class="fas fa-info-circle me-1"></i>Karyawan dapat melihat dan mengunduh bukti ini dari dashboard mereka.</small>
                                                 </div>
                                             </div>
-                                            <div class="modal-footer border-0 bg-light">
-                                                <button type="button" class="btn btn-secondary text-white border-0" data-bs-dismiss="modal">Batal</button>
-                                                <button type="submit" name="bayar_gaji" class="btn btn-success fw-bold px-4 shadow-sm border-0">Simpan & Kirim</button>
+                                            <div class="modal-footer border-top-0 pt-0">
+                                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                                                <button type="submit" name="bayar_gaji" class="btn btn-primary px-4">Simpan & Kirim</button>
                                             </div>
                                         </form>
                                     </div>

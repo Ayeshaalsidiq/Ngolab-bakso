@@ -14,35 +14,31 @@ if (isset($_POST['simpan_nilai'])) {
     $catatan = $_POST['catatan'];
 
     // Cek apakah sudah ada penilaian bulan ini
-    $cek = $pdo->prepare("SELECT id FROM penilaian_kinerja WHERE user_id=? AND bulan=?");
-    $cek->execute([$user_id, $filter_bulan]);
-    $ada = $cek->fetch();
+    $cek = mysqli_execute_query($koneksi, "SELECT id FROM penilaian_kinerja WHERE user_id=? AND bulan=?", [$user_id, $filter_bulan]);
+    $ada = mysqli_fetch_assoc($cek);
 
     try {
         if ($ada) {
-            $stmt = $pdo->prepare("UPDATE penilaian_kinerja SET nilai_kerajinan=?, nilai_sikap=?, catatan=? WHERE id=?");
-            $stmt->execute([$nilai_kerajinan, $nilai_sikap, $catatan, $ada['id']]);
+            mysqli_execute_query($koneksi, "UPDATE penilaian_kinerja SET nilai_kerajinan=?, nilai_sikap=?, catatan=? WHERE id=?", [$nilai_kerajinan, $nilai_sikap, $catatan, $ada['id']]);
             $sukses = "Penilaian berhasil diupdate!";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO penilaian_kinerja (user_id, bulan, nilai_kerajinan, nilai_sikap, catatan) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$user_id, $filter_bulan, $nilai_kerajinan, $nilai_sikap, $catatan]);
+            mysqli_execute_query($koneksi, "INSERT INTO penilaian_kinerja (user_id, bulan, nilai_kerajinan, nilai_sikap, catatan) VALUES (?, ?, ?, ?, ?)", [$user_id, $filter_bulan, $nilai_kerajinan, $nilai_sikap, $catatan]);
             $sukses = "Penilaian berhasil disimpan!";
         }
-    } catch(PDOException $e) {
+    } catch(Exception $e) {
         $error = "Terjadi kesalahan sistem saat menyimpan nilai.";
     }
 }
 
 // Ambil list karyawan berserta nilai bulan ini (jika ada) menggunakan LEFT JOIN
-$stmt_karyawan = $pdo->prepare("
+$stmt_karyawan = mysqli_execute_query($koneksi, "
     SELECT u.id, u.nama, p.id as nilai_id, p.nilai_kerajinan, p.nilai_sikap, p.catatan 
     FROM users u 
     LEFT JOIN penilaian_kinerja p ON u.id = p.user_id AND p.bulan = ? 
     WHERE u.role = 'karyawan' 
     ORDER BY u.nama ASC
-");
-$stmt_karyawan->execute([$filter_bulan]);
-$karyawan = $stmt_karyawan->fetchAll(PDO::FETCH_ASSOC);
+", [$filter_bulan]);
+$karyawan = mysqli_fetch_all($stmt_karyawan, MYSQLI_ASSOC);
 
 include '../layouts/header.php';
 include '../layouts/sidebar_admin.php';
@@ -67,14 +63,14 @@ include '../layouts/sidebar_admin.php';
             </div>
         <?php endif; ?>
 
-        <div class="card shadow-sm mb-4">
+        <div class="card mb-4 border-0 shadow-sm">
             <div class="card-body">
                 <form method="GET" class="row g-3 align-items-center">
                     <div class="col-auto">
-                        <label for="bulan" class="col-form-label fw-medium">Pilih Periode Evaluasi:</label>
+                        <label for="bulan" class="col-form-label fw-bold text-muted small">PILIH PERIODE EVALUASI:</label>
                     </div>
                     <div class="col-auto">
-                        <input type="month" id="bulan" name="bulan" class="form-control fw-bold text-primary" value="<?= $filter_bulan ?>" required>
+                        <input type="month" id="bulan" name="bulan" class="form-control fw-medium text-dark" value="<?= $filter_bulan ?>" required>
                     </div>
                     <div class="col-auto">
                         <button type="submit" class="btn btn-outline-primary"><i class="fas fa-search me-1"></i> Tampilkan</button>
@@ -83,21 +79,21 @@ include '../layouts/sidebar_admin.php';
             </div>
         </div>
 
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white border-0 fw-bold pb-0">
-                <i class="fas fa-star text-warning me-1"></i> Daftar Kinerja Periode (<?= date('F Y', strtotime($filter_bulan . '-01')) ?>)
+        <div class="card">
+            <div class="card-header border-bottom-0 pb-0 pt-4 bg-white">
+                <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-star text-warning me-2"></i>Daftar Kinerja Periode (<?= date('F Y', strtotime($filter_bulan . '-01')) ?>)</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body px-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Karyawan</th>
-                                <th>Nilai Kerajinan</th>
-                                <th>Nilai Sikap</th>
-                                <th>Rata-rata</th>
-                                <th>Catatan Evaluasi</th>
-                                <th>Aksi</th>
+                                <th class="ps-4">KARYAWAN</th>
+                                <th>NILAI KERAJINAN</th>
+                                <th>NILAI SIKAP</th>
+                                <th>RATA-RATA</th>
+                                <th>CATATAN EVALUASI</th>
+                                <th class="pe-4">AKSI</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -107,30 +103,32 @@ include '../layouts/sidebar_admin.php';
                                     $avg = $hasScore ? round(($k['nilai_kerajinan'] + $k['nilai_sikap']) / 2, 1) : 0;
                                 ?>
                             <tr>
-                                <td class="fw-bold"><?= htmlspecialchars($k['nama']) ?></td>
+                                <td class="ps-4 fw-medium text-dark"><?= htmlspecialchars($k['nama']) ?></td>
                                 <td>
                                     <?php if($hasScore): ?>
-                                        <div class="progress" style="height: 20px;">
-                                            <div class="progress-bar bg-info" role="progressbar" style="width: <?= $k['nilai_kerajinan'] ?>%;" aria-valuenow="<?= $k['nilai_kerajinan'] ?>" aria-valuemin="0" aria-valuemax="100"><?= $k['nilai_kerajinan'] ?></div>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar bg-primary" role="progressbar" style="width: <?= $k['nilai_kerajinan'] ?>%;" aria-valuenow="<?= $k['nilai_kerajinan'] ?>" aria-valuemin="0" aria-valuemax="100"></div>
                                         </div>
+                                        <div class="small text-muted mt-1"><?= $k['nilai_kerajinan'] ?>/100</div>
                                     <?php else: ?>
                                         <span class="text-muted small">Belum Dinilai</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if($hasScore): ?>
-                                        <div class="progress" style="height: 20px;">
-                                            <div class="progress-bar bg-success" role="progressbar" style="width: <?= $k['nilai_sikap'] ?>%;" aria-valuenow="<?= $k['nilai_sikap'] ?>" aria-valuemin="0" aria-valuemax="100"><?= $k['nilai_sikap'] ?></div>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar bg-info" role="progressbar" style="width: <?= $k['nilai_sikap'] ?>%;" aria-valuenow="<?= $k['nilai_sikap'] ?>" aria-valuemin="0" aria-valuemax="100"></div>
                                         </div>
+                                        <div class="small text-muted mt-1"><?= $k['nilai_sikap'] ?>/100</div>
                                     <?php else: ?>
                                         <span class="text-muted small">Belum Dinilai</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if($hasScore): ?>
-                                        <span class="badge bg-primary fs-6"><?= $avg ?></span>
+                                        <span class="badge bg-light text-dark border fw-medium"><?= $avg ?></span>
                                     <?php else: ?>
-                                        -
+                                        <span class="text-muted">-</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -142,8 +140,8 @@ include '../layouts/sidebar_admin.php';
                                         <span class="text-muted small">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td>
-                                    <button class="btn btn-sm <?= $hasScore ? 'btn-outline-warning' : 'btn-primary' ?>" data-bs-toggle="modal" data-bs-target="#nilaiModal<?= $k['id'] ?>">
+                                <td class="pe-4">
+                                    <button class="btn btn-sm <?= $hasScore ? 'btn-outline-primary' : 'btn-primary' ?>" data-bs-toggle="modal" data-bs-target="#nilaiModal<?= $k['id'] ?>">
                                         <i class="fas fa-edit me-1"></i> <?= $hasScore ? 'Edit Nilai' : 'Beri Nilai' ?>
                                     </button>
                                 </td>
@@ -151,42 +149,42 @@ include '../layouts/sidebar_admin.php';
 
                             <!-- Modal Penilaian -->
                             <div class="modal fade" id="nilaiModal<?= $k['id'] ?>" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow">
                                         <form method="POST">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Penilaian: <?= htmlspecialchars($k['nama']) ?></h5>
+                                            <div class="modal-header border-bottom-0 pb-0 pt-4">
+                                                <h5 class="modal-title fw-bold">Penilaian: <?= htmlspecialchars($k['nama']) ?></h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                             </div>
                                             <div class="modal-body">
                                                 <input type="hidden" name="user_id" value="<?= $k['id'] ?>">
                                                 
-                                                <div class="mb-3">
-                                                    <label class="form-label d-flex justify-content-between">
-                                                        <span>Nilai Kerajinan (0-100)</span>
-                                                        <span id="label_rajin_<?= $k['id'] ?>" class="fw-bold text-info"><?= $hasScore ? $k['nilai_kerajinan'] : 50 ?></span>
+                                                <div class="mb-4">
+                                                    <label class="form-label d-flex justify-content-between text-muted small fw-bold">
+                                                        <span>NILAI KERAJINAN (0-100)</span>
+                                                        <span id="label_rajin_<?= $k['id'] ?>" class="text-primary"><?= $hasScore ? $k['nilai_kerajinan'] : 50 ?></span>
                                                     </label>
                                                     <input type="range" class="form-range" name="nilai_kerajinan" min="0" max="100" value="<?= $hasScore ? $k['nilai_kerajinan'] : 50 ?>" oninput="document.getElementById('label_rajin_<?= $k['id'] ?>').innerText=this.value">
                                                     <small class="text-muted">Kerapihan kedatangan, jarang izin/absen, dll.</small>
                                                 </div>
 
-                                                <div class="mb-3">
-                                                    <label class="form-label d-flex justify-content-between">
-                                                        <span>Nilai Sikap (0-100)</span>
-                                                        <span id="label_sikap_<?= $k['id'] ?>" class="fw-bold text-success"><?= $hasScore ? $k['nilai_sikap'] : 50 ?></span>
+                                                <div class="mb-4">
+                                                    <label class="form-label d-flex justify-content-between text-muted small fw-bold">
+                                                        <span>NILAI SIKAP (0-100)</span>
+                                                        <span id="label_sikap_<?= $k['id'] ?>" class="text-info"><?= $hasScore ? $k['nilai_sikap'] : 50 ?></span>
                                                     </label>
                                                     <input type="range" class="form-range" name="nilai_sikap" min="0" max="100" value="<?= $hasScore ? $k['nilai_sikap'] : 50 ?>" oninput="document.getElementById('label_sikap_<?= $k['id'] ?>').innerText=this.value">
                                                     <small class="text-muted">Performa saat jaga, attitude dengan customer, dll.</small>
                                                 </div>
 
                                                 <div class="mb-3">
-                                                    <label class="form-label">Catatan Evaluasi / Pesan Khusus</label>
-                                                    <textarea class="form-control" name="catatan" rows="3"><?= $hasScore ? htmlspecialchars($k['catatan']) : '' ?></textarea>
+                                                    <label class="form-label text-muted small fw-bold">CATATAN EVALUASI / PESAN KHUSUS</label>
+                                                    <textarea class="form-control" name="catatan" rows="3" placeholder="Masukkan catatan..."><?= $hasScore ? htmlspecialchars($k['catatan']) : '' ?></textarea>
                                                 </div>
                                             </div>
-                                            <div class="modal-footer text-end">
-                                                <button type="button" class="btn btn-secondary text-white" data-bs-dismiss="modal">Batal</button>
-                                                <button type="submit" name="simpan_nilai" class="btn btn-warning text-dark fw-bold">Simpan Evaluasi</button>
+                                            <div class="modal-footer border-top-0 pt-0">
+                                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                                                <button type="submit" name="simpan_nilai" class="btn btn-primary px-4">Simpan Evaluasi</button>
                                             </div>
                                         </form>
                                     </div>

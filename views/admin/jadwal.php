@@ -12,16 +12,14 @@ if (isset($_POST['tambah_shift'])) {
     $jam_selesai = $_POST['jam_selesai'];
 
     // Validasi apakah karyawan sudah ada shift di tanggal tersebut
-    $cek = $pdo->prepare("SELECT id FROM jadwal_shift WHERE user_id=? AND tanggal=?");
-    $cek->execute([$user_id, $tanggal]);
-    if ($cek->rowCount() > 0) {
+    $cek_result = mysqli_execute_query($koneksi, "SELECT id FROM jadwal_shift WHERE user_id=? AND tanggal=?", [$user_id, $tanggal]);
+    if (mysqli_num_rows($cek_result) > 0) {
         $error = "Karyawan tersebut sudah memiliki shift pada tanggal $tanggal.";
     } else {
         try {
-            $stmt = $pdo->prepare("INSERT INTO jadwal_shift (user_id, tanggal, jam_mulai, jam_selesai, status) VALUES (?, ?, ?, ?, 'aktif')");
-            $stmt->execute([$user_id, $tanggal, $jam_mulai, $jam_selesai]);
+            mysqli_execute_query($koneksi, "INSERT INTO jadwal_shift (user_id, tanggal, jam_mulai, jam_selesai, status) VALUES (?, ?, ?, ?, 'aktif')", [$user_id, $tanggal, $jam_mulai, $jam_selesai]);
             $sukses = "Jadwal shift berhasil ditambahkan!";
-        } catch(PDOException $e) {
+        } catch(Exception $e) {
             $error = "Gagal menambah jadwal shift.";
         }
     }
@@ -30,7 +28,7 @@ if (isset($_POST['tambah_shift'])) {
 // Proses Hapus Shift
 if (isset($_GET['hapus'])) {
     $id = $_GET['hapus'];
-    $pdo->prepare("DELETE FROM jadwal_shift WHERE id=?")->execute([$id]);
+    mysqli_execute_query($koneksi, "DELETE FROM jadwal_shift WHERE id=?", [$id]);
     redirect('jadwal.php?msg=deleted');
 }
 
@@ -38,18 +36,18 @@ if (isset($_GET['hapus'])) {
 $filter_bulan = isset($_GET['bulan']) ? $_GET['bulan'] : date('Y-m');
 
 // Ambil data shift berdasarkan bulan filter
-$stmt_shift = $pdo->prepare("
+$result_shift = mysqli_execute_query($koneksi, "
     SELECT j.*, u.nama 
     FROM jadwal_shift j 
     JOIN users u ON j.user_id = u.id 
     WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = ? 
     ORDER BY j.tanggal ASC, j.jam_mulai ASC
-");
-$stmt_shift->execute([$filter_bulan]);
-$jadwal_shift = $stmt_shift->fetchAll(PDO::FETCH_ASSOC);
+", [$filter_bulan]);
+$jadwal_shift = mysqli_fetch_all($result_shift, MYSQLI_ASSOC);
 
 // Ambil list karyawan untuk dropdown
-$karyawan = $pdo->query("SELECT id, nama FROM users WHERE role='karyawan' ORDER BY nama ASC")->fetchAll(PDO::FETCH_ASSOC);
+$res_kar = mysqli_query($koneksi, "SELECT id, nama FROM users WHERE role='karyawan' ORDER BY nama ASC");
+$karyawan = mysqli_fetch_all($res_kar, MYSQLI_ASSOC);
 
 include '../layouts/header.php';
 include '../layouts/sidebar_admin.php';
@@ -81,15 +79,16 @@ include '../layouts/sidebar_admin.php';
         <?php endif; ?>
 
         <div class="row">
+        <div class="row">
             <div class="col-md-4">
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-primary text-white border-0">
-                        <i class="fas fa-calendar-plus me-1"></i> Buat Shift Baru
+                <div class="card mb-4">
+                    <div class="card-header border-bottom-0 pb-0 pt-4 bg-white">
+                        <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-calendar-plus me-2 text-primary"></i>Buat Shift Baru</h6>
                     </div>
                     <div class="card-body">
                         <form method="POST" action="">
                             <div class="mb-3">
-                                <label class="form-label">Karyawan</label>
+                                <label class="form-label text-muted small fw-bold">KARYAWAN</label>
                                 <select name="user_id" class="form-select" required>
                                     <option value="">-- Pilih Karyawan --</option>
                                     <?php foreach($karyawan as $k): ?>
@@ -98,20 +97,20 @@ include '../layouts/sidebar_admin.php';
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Tanggal Shift</label>
+                                <label class="form-label text-muted small fw-bold">TANGGAL SHIFT</label>
                                 <input type="date" name="tanggal" class="form-control" required min="<?= date('Y-m-d') ?>">
                             </div>
                             <div class="row mb-3">
                                 <div class="col-6">
-                                    <label class="form-label">Jam Mulai</label>
+                                    <label class="form-label text-muted small fw-bold">JAM MULAI</label>
                                     <input type="time" name="jam_mulai" class="form-control" required>
                                 </div>
                                 <div class="col-6">
-                                    <label class="form-label">Jam Selesai</label>
+                                    <label class="form-label text-muted small fw-bold">JAM SELESAI</label>
                                     <input type="time" name="jam_selesai" class="form-control" required>
                                 </div>
                             </div>
-                            <button type="submit" name="tambah_shift" class="btn btn-primary w-100">
+                            <button type="submit" name="tambah_shift" class="btn btn-primary w-100 mt-2">
                                 Simpan Jadwal
                             </button>
                         </form>
@@ -120,11 +119,11 @@ include '../layouts/sidebar_admin.php';
             </div>
 
             <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-calendar-alt me-1"></i> Daftar Shift (<?= date('F Y', strtotime($filter_bulan . '-01')) ?>)</span>
+                <div class="card">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <span class="fw-bold text-dark"><i class="fas fa-calendar-alt me-2 text-primary"></i>Daftar Shift (<?= date('F Y', strtotime($filter_bulan . '-01')) ?>)</span>
                         <form method="GET" class="d-flex align-items-center gap-2">
-                            <input type="month" name="bulan" class="form-control form-control-sm" value="<?= $filter_bulan ?>" required>
+                            <input type="month" name="bulan" class="form-control form-control-sm" value="<?= $filter_bulan ?>" required style="max-width: 150px;">
                             <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
                         </form>
                     </div>
@@ -133,30 +132,30 @@ include '../layouts/sidebar_admin.php';
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="ps-3">Tanggal</th>
-                                        <th>Karyawan</th>
-                                        <th>Waktu Shift</th>
-                                        <th>Status</th>
-                                        <th class="pe-3">Aksi</th>
+                                        <th class="ps-4">TANGGAL</th>
+                                        <th>KARYAWAN</th>
+                                        <th>WAKTU SHIFT</th>
+                                        <th>STATUS</th>
+                                        <th class="pe-4 text-center">AKSI</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php if(count($jadwal_shift) > 0): ?>
                                         <?php foreach($jadwal_shift as $s): ?>
                                         <tr>
-                                            <td class="ps-3 fw-medium">
+                                            <td class="ps-4 fw-medium text-dark">
                                                 <?= tgl_indo($s['tanggal']) ?>
                                             </td>
-                                            <td><?= htmlspecialchars($s['nama']) ?></td>
-                                            <td><span class="badge text-bg-light border"><?= substr($s['jam_mulai'],0,5) ?> - <?= substr($s['jam_selesai'],0,5) ?></span></td>
+                                            <td class="text-muted"><?= htmlspecialchars($s['nama']) ?></td>
+                                            <td><span class="badge text-bg-light border text-muted fw-normal"><?= substr($s['jam_mulai'],0,5) ?> - <?= substr($s['jam_selesai'],0,5) ?></span></td>
                                             <td>
                                                 <?php 
                                                     $bg = ($s['status'] == 'aktif') ? 'success' : (($s['status'] == 'tukar') ? 'warning' : 'secondary');
                                                 ?>
                                                 <span class="badge bg-<?= $bg ?>"><?= ucfirst($s['status']) ?></span>
                                             </td>
-                                            <td class="pe-3">
-                                                <a href="jadwal.php?hapus=<?= $s['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Hapus shift untuk <?= htmlspecialchars($s['nama']) ?>?');" title="Hapus Shift">
+                                            <td class="pe-4 text-center">
+                                                <a href="jadwal.php?hapus=<?= $s['id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Hapus shift untuk <?= htmlspecialchars($s['nama']) ?>?');" title="Hapus Shift">
                                                     <i class="fas fa-trash"></i>
                                                 </a>
                                             </td>

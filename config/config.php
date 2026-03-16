@@ -7,12 +7,15 @@ $password = '';
 $database = 'db_masyanto';
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$database;charset=utf8mb4", $username, $password);
-    // Set the PDO error mode to exception
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $koneksi = mysqli_connect($host, $username, $password, $database);
+    if (!$koneksi) {
+        die("Koneksi Database Gagal: " . mysqli_connect_error());
+    }
+    // Set charset
+    mysqli_set_charset($koneksi, "utf8mb4");
     // Atur timezone
     date_default_timezone_set('Asia/Jakarta');
-} catch(PDOException $e) {
+} catch(Exception $e) {
     die("Koneksi Database Gagal: " . $e->getMessage());
 }
 
@@ -51,9 +54,6 @@ function tgl_indo($tanggal){
 	);
 	$pecahkan = explode('-', $tanggal);
 	
-	// variabel pecahkan 0 = tahun
-	// variabel pecahkan 1 = bulan
-	// variabel pecahkan 2 = tanggal
  
 	return $pecahkan[2] . ' ' . $bulan[ (int)$pecahkan[1] ] . ' ' . $pecahkan[0];
 }

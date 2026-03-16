@@ -5,8 +5,8 @@ if (!isAdmin()) {
 }
 
 // Ambil semua data agenda beserta nama user
-$stmt = $pdo->query("SELECT k.*, u.nama FROM ketersediaan_karyawan k JOIN users u ON k.user_id = u.id ORDER BY k.hari ASC, u.nama ASC");
-$agenda = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$result = mysqli_query($koneksi, "SELECT k.*, u.nama FROM ketersediaan_karyawan k JOIN users u ON k.user_id = u.id ORDER BY k.hari ASC, u.nama ASC");
+$agenda = mysqli_fetch_all($result, MYSQLI_ASSOC);
 
 // Map hari untuk sorting manual di PHP jika dibutuhkan
 $hari_order = ['Senin'=>1, 'Selasa'=>2, 'Rabu'=>3, 'Kamis'=>4, 'Jumat'=>5, 'Sabtu'=>6, 'Minggu'=>7];
@@ -32,29 +32,27 @@ include '../layouts/sidebar_admin.php';
     </nav>
 
     <div class="container-fluid">
-        <div class="card bg-info text-white mb-4 border-0 shadow-sm">
-            <div class="card-body py-3 d-flex align-items-center">
-                <i class="fas fa-info-circle fs-3 me-3 opacity-75"></i>
-                <div class="mb-0">
-                    Gunakan tabel ini sebagai acuan saat <strong>Menentukan Jadwal Shift</strong>. Pastikan Anda tidak memberikan shift pada jam di luar ketersediaan mereka.
-                </div>
+        <div class="alert alert-info border-0 shadow-sm d-flex align-items-center mb-4 p-3 rounded-3" role="alert">
+            <i class="fas fa-info-circle fs-4 me-3 text-info"></i>
+            <div>
+                Gunakan tabel ini sebagai acuan saat <strong>Menentukan Jadwal Shift</strong>. Pastikan Anda tidak memberikan shift pada jam di luar ketersediaan mereka.
             </div>
         </div>
 
         <div class="card">
-            <div class="card-header border-0 pb-0 bg-white">
-                <i class="fas fa-list me-1"></i> Rekap Ketersediaan Mingguan
+            <div class="card-header border-bottom-0 pb-0 pt-4 bg-white">
+                <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-list me-2 text-primary"></i>Rekap Ketersediaan Mingguan</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body px-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Hari</th>
-                                <th>Nama Karyawan</th>
-                                <th>Jam Tersedia</th>
-                                <th>Keterangan Tambahan</th>
-                                <th>Bukti (Jika Ada)</th>
+                                <th class="ps-4">HARI</th>
+                                <th>NAMA KARYAWAN</th>
+                                <th>JAM TERSEDIA</th>
+                                <th>KETERANGAN TAMBAHAN</th>
+                                <th class="pe-4">BUKTI (JIKA ADA)</th>
                             </tr>
                         </thead>
                         <tbody>
